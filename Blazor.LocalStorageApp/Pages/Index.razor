@@ -1,0 +1,89 @@
+﻿@page "/"
+@inject ILocalStorageService localStorage
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Linq
+
+<PageTitle>Index</PageTitle>
+
+
+
+<h1>Todo (@todos.Count(task => !task.IsChecked))</h1>
+
+<ol>
+    @foreach (var item in todos.OrderBy(x => x.IsChecked))
+    {
+        <li>
+            <div>
+                <p style="@StyleForNumber(item.IsChecked)">@item.Title | @item.IsChecked</p>
+                <input type="checkbox" @onclick="@(() => MarkAsComplete(@item))" @bind="@item.IsChecked" />
+                <button @onclick="@(() => UpdateTodo(@item))">Update</button>
+                <button @onclick="@(() => RemoveTodo(@item.Id))">Remove</button>
+            </div>
+        </li>
+    }
+</ol>
+
+<input placeholder="Something todo" @bind="todoInput" />
+<button @onclick="AddTodo">Add todo</button>
+
+@code {
+    public string todoInput { get; set; } = string.Empty;
+    public List<ToDoItem> todos = new List<ToDoItem>();
+    private const string TodoStorageKey = "SavedTodos";
+
+    protected override async Task OnInitializedAsync()
+    {
+        todos = await GetStoredTodos();
+    }
+
+    private string StyleForNumber(bool val)
+    {
+        if (val == true) return "color: green; text-decoration: line-through;";
+        if (val == false) return "";
+        return "background:lightgreen";
+    }
+
+    public void AddTodo()
+    {
+        if (!String.IsNullOrWhiteSpace(todoInput))
+        {
+            var todo = new ToDoItem();
+            todo.Id = Guid.NewGuid();
+            todo.Title = todoInput;
+            todos.Add(todo);
+            todoInput = "";
+            SaveTodos();
+        }
+
+    }
+
+    public void RemoveTodo(Guid index)
+    {
+        var findTodo = todos.First(x => x.Id == index);
+        todos.Remove(findTodo);
+        SaveTodos();
+    }
+
+    public void UpdateTodo(ToDoItem item)
+    {
+        item.Title = todoInput;
+        SaveTodos();
+    }
+
+    public void MarkAsComplete(ToDoItem item)
+    {
+        item.IsChecked = !item.IsChecked;
+        SaveTodos();
+    }
+
+    public void SaveTodos()
+    {
+        localStorage.SetItemAsync(TodoStorageKey, JsonConvert.SerializeObject(todos));
+    }
+
+    private async Task<List<ToDoItem>> GetStoredTodos()
+    {
+        string? storedTodos = await localStorage.GetItemAsync<string>(TodoStorageKey);
+        return JsonConvert.DeserializeObject<List<ToDoItem>>(storedTodos);
+    }
+}
